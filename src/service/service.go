@@ -41,17 +41,22 @@ func ExecuteTransaction(transaction models.Transaction, customerId int) (models.
 
 func GetClientsBankStatement(customerId int) (statement models.Statement, err error) {
     var transactions []models.Transaction
+
+    // essa chamada poderia ser async
     transactions, err = dao.GetCustomersLastTransactions(customerId)
     if err != nil {
         fmt.Println("Error retrieving clients last 10 transactions", err)
         return
     }
 
+    // essa aqui também
     tResponse, err := dao.GetCustomersBalanceAndLimit(customerId)
     if err != nil {
         fmt.Println("Error retrieving clients balance and limit", err)
         return
     }
+
+    // aqui um wg de espera das duas chamadas async
     statement.Balance.Total = tResponse.Balance
     statement.Balance.Limit = tResponse.Limit
     statement.LastTransactions = transactions

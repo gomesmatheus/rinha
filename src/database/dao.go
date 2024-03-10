@@ -1,15 +1,15 @@
 package dao
 
 import (
-	"database/sql"
+	"context"
 	"fmt"
 	"time"
 
 	"github.com/gomesmatheus/rinha/src/models"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-
-var db *sql.DB
+var db *pgxpool.Pool
 
 const (
     createTransactions = `
@@ -18,31 +18,45 @@ const (
             value INTEGER NOT NULL,
             type VARCHAR(1) NOT NULL,
             description VARCHAR(10) NOT NULL,
-            time DATETIME NOT NULL
+            time TIMESTAMP NOT NULL,
+
+            CONSTRAINT fk_customer FOREIGN KEY(customer_id) REFERENCES customers(id)
         );
     `
     createCustomers = `
         CREATE TABLE IF NOT EXISTS customers (
             id INTEGER NOT NULL PRIMARY KEY,
-            'limit' INTEGER NOT NULL,
+            "limit" INTEGER NOT NULL,
             balance INTEGER NOT NULL
         );
     `
+
+    createIndex = "CREATE INDEX IF NOT EXISTS customer_id_index ON transactions(customer_id);"
 )
 
 func InitDb() (err error) {
-    db, err = sql.Open("sqlite3", "database.db")
+    url := "postgres://postgres:mysecretpassword@localhost:5432/postgres"
+    config, err := pgxpool.ParseConfig(url)
     if err != nil {
-        fmt.Println("Error connecting to db", err)
+        fmt.Println("Error parsing config", err)
     }
-
-    if _, err := db.Exec(createTransactions); err != nil {
-        fmt.Println("Error creating table transactions", err)
+    db, err = pgxpool.NewWithConfig(context.Background(), config)
+    if err != nil {
+        fmt.Println("Error creating connection", err)
     }
-
-    if _, err := db.Exec(createCustomers); err != nil {
+    
+    if _, err := db.Exec(context.Background(), createCustomers); err != nil {
         fmt.Println("Error creating table customers", err)
     }
+
+    if _, err := db.Exec(context.Background(), createTransactions); err != nil {
+        fmt.Println("Error creating table transactions", err)
+    }
+ 
+    if _, err := db.Exec(context.Background(), createIndex); err != nil {
+        fmt.Println("Error creating index on table transactions", err)
+    }
+
     return 
 }
 
@@ -51,7 +65,7 @@ func CloseDb() {
 }
 
 func GetCustomersLastTransactions(customerId int) (transactions []models.Transaction, err error) {
-    rows, err := db.Query("SELECT value, type, description, time FROM transactions WHERE customer_id = ? ORDER BY time DESC LIMIT 10", customerId)
+    rows, err := db.Query(context.Background(), "SELECT value, type, description, time FROM transactions WHERE customer_id = $1 ORDER BY time DESC LIMIT 10", customerId)
     defer rows.Close()
     if err != nil {
         fmt.Println("Error retrieving data for customerId", customerId)
@@ -72,7 +86,7 @@ func GetCustomersLastTransactions(customerId int) (transactions []models.Transac
 }
 
 func GetCustomersBalanceAndLimit(customerId int) (tResponse models.TransactionResponse, err error) {
-    row := db.QueryRow("SELECT balance, `limit` FROM customers WHERE id = ?", customerId) 
+    row := db.QueryRow(context.Background(), `SELECT balance, "limit" FROM customers WHERE id = $1`, customerId)
     if err = row.Scan(&tResponse.Balance, &tResponse.Limit); err != nil {
         fmt.Println("Error scanning balance and limit", err)
     }
@@ -80,12 +94,12 @@ func GetCustomersBalanceAndLimit(customerId int) (tResponse models.TransactionRe
 }
 
 func UpdateCustomersBalance(customerId int, balance int) error {
-    _, err := db.Exec("UPDATE customers SET balance = ? WHERE id = ?", balance, customerId)
+    _, err := db.Exec(context.Background(), "UPDATE customers SET balance = $1 WHERE id = $2", balance, customerId)
     return err
 }
 
 func RegisterTransaction(customerId int, t models.Transaction) error {
-    _, err := db.Exec("INSERT INTO transactions (customer_id, value, type, description, time) VALUES (?, ?, ?, ?, ?)", customerId, t.Value, t.Type, t.Description, time.Now())
+    _, err := db.Exec(context.Background(), "INSERT INTO transactions (customer_id, value, type, description, time) VALUES ($1, $2, $3, $4, $5)", customerId, t.Value, t.Type, t.Description, time.Now())
     return err
 }
 

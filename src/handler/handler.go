@@ -86,5 +86,5 @@ func statementRoute(w http.ResponseWriter, r *http.Request, customerId int) {
 }
 
 func isPayloadInvalid(t models.Transaction) bool {
-    return (t.Type != "c" && t.Type != "d") || t.Description == "" || t.Value == 0
+    return (t.Type != "c" && t.Type != "d") || t.Description == "" || len(t.Description) > 10 || t.Value == 0
 }

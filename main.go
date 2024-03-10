@@ -5,10 +5,9 @@ import (
 	"net/http"
 	dao "github.com/gomesmatheus/rinha/src/database"
 	"github.com/gomesmatheus/rinha/src/handler"
-	_ "github.com/mattn/go-sqlite3"
 )
 
-
+// docker run --name some-postgres -e POSTGRES_PASSWORD=mysecretpassword -d -p 5432:5432 postgres
 func main() {
     err := dao.InitDb()
     if err != nil {

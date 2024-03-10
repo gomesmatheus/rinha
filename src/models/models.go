@@ -2,7 +2,6 @@ package models
 
 import "time"
 
-
 type Transaction struct {
     Value int `json:"valor"`
     Type string `json:"tipo"`
@@ -23,3 +22,4 @@ type Statement struct {
     } `json:"saldo"` 
     LastTransactions [] Transaction `json:"ultimas_transacoes"`
 }
+
